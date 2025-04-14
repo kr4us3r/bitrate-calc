@@ -48,7 +48,7 @@ For a video file:
 
 ```
 Audio bitrate: 128 kbps
-Video bitrate (excluding audio): 1500 kbps
+Video bitrate: 1500 kbps
 ```
 
 For an audio file:
