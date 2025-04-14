@@ -47,14 +47,14 @@ bitrate-calc path/to/file.mp3
 For a video file:
 
 ```
-Audio bitrate: 128.45 kbps
-Video bitrate (excluding audio): 1500.67 kbps
+Audio bitrate: 128 kbps
+Video bitrate (excluding audio): 1500 kbps
 ```
 
 For an audio file:
 
 ```
-Audio bitrate: 256.32 kbps
+Audio bitrate: 256 kbps
 ```
 
 ## Supported Formats
