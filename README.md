@@ -5,36 +5,32 @@ A CLI tool to calculate audio bitrate for video/audio files and video bitrate (e
 ## Installation
 
 1. Clone the repo:
-   ```bash
-   git clone https://github.com/yourusername/bitrate-calculator.git
-   cd bitrate-calculator
+```bash
+git clone https://github.com/yourusername/bitrate-calculator.git
+cd bitrate-calculator
 ```
 
 2. Create a virtual environment (optional but recommended):
-
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Linux/macOS
-   .\venv\Scripts\activate   # Windows
-   ```
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/macOS
+.\venv\Scripts\activate   # Windows
+```
 
 3. Install dependencies:
-
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+pip install -r requirements.txt
+```
 
 4. Install FFmpeg:
-
-   - Linux: `sudo apt install ffmpeg`
-   - macOS: `brew install ffmpeg`
-   - Windows: Download from ffmpeg.org and add to PATH.
+- Linux: `sudo apt install ffmpeg`
+- macOS: `brew install ffmpeg`
+- Windows: Download from ffmpeg.org and add to PATH.
 
 5. (Optional) Install as a global tool:
-
-   ```bash
-   pip install .
-   ```
+```bash
+pip install .
+```
 
 ## Usage
 
