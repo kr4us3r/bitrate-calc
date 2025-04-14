@@ -4,7 +4,7 @@ from moviepy import VideoFileClip
 from pydub import AudioSegment
 import ffmpeg
 
-def calculate_bitrate(file_path, temp_audio="temp_audio.wav"):
+def calculate_bitrate(file_path, temp_audio_base="temp_audio"):
     """
     Calculate audio bitrate for audio/video files and video bitrate
     excluding audio for videos. Uses ffmpeg-python for metadata if available,
@@ -14,6 +14,7 @@ def calculate_bitrate(file_path, temp_audio="temp_audio.wav"):
     bitrates = {}
     mime_type, _ = mimetypes.guess_type(file_path)
     is_video = mime_type and mime_type.startswith("video")
+    temp_file_created = False
 
     try:
         # Try metadata extraction with ffmpeg
@@ -35,17 +36,44 @@ def calculate_bitrate(file_path, temp_audio="temp_audio.wav"):
         
         # Manual calculation
         if is_video:
-            # Exctract audio from video
-            video = VideoFileClip(file_path)
-            duration_seconds = video.duration
-            video.audio.write_audiofile(temp_audio)
-            video.close()
+            try:
+                # Get audio codec to choose extension
+                probe = ffmpeg.probe(file_path)
+                audio_stream = next((s for s in probe["streams"] if s["codec_type"] == "audio"), None)
+                if not audio_stream:
+                    raise ValueError("No audio stream found in video")
+                codec = audio_stream.get("codec_name", "aac").lower()
+                codec_to_ext = {
+                    "aac": ".aac",
+                    "mp3": ".mp3",
+                    "opus": ".opus",
+                    "vorbis": ".vorbis",
+                    "flac": ".flac",
+                    "pcm_s16le": ".wav",
+                    "ac3": ".ac3",
+                    "dts": ".dts",
+                }
+                ext = codec_to_ext.get(codec, ".aac")
+                temp_audio = temp_audio_base + ext
+
+                # Exctract without re-encoding
+                stream = ffmpeg.input(file_path)
+                stream = ffmpeg.output(stream, temp_audio, c='copy', map='0:a:0', loglevel='quiet')
+                ffmpeg.run(stream)
+                duration_seconds = float(probe["format"]["duration"])
+            except (ffmpeg.Error, ValueError):
+                print(f"Native audio exctraction failed. Falling back to WAV.")
+                temp_audio = temp_audio_base + ".wav"
+                video = VideoFileClip(file_path)
+                duration_seconds = video.duration
+                video.audio.write_audiofile(temp_audio)
+                video.close()
+            temp_file_created = True
         else:
             # Use audio file directly
             temp_audio = file_path
             duration_seconds = AudioSegment.from_file(file_path).duration_seconds
 
-        audio = AudioSegment.from_file(temp_audio)
         audio_size_bits = os.path.getsize(temp_audio) * 8
         audio_bitrate_kpbs = (audio_size_bits / duration_seconds) / 1000
         bitrates["audio"] = audio_bitrate_kpbs
@@ -55,11 +83,8 @@ def calculate_bitrate(file_path, temp_audio="temp_audio.wav"):
             video_size_bits = container_size_bits - audio_size_bits
             video_bitrate_kpbs = (video_size_bits / duration_seconds) / 1000
             bitrates["video"] = video_bitrate_kpbs
-            os.remove(temp_audio)
-
         return bitrates
-
-    except Exception as e:
-        raise Exception(f"Failed to calculate bitrate: {str(e)}")
-
-
+   
+    finally:
+        if temp_file_created and os.path.exists(temp_audio):
+            os.remove(temp_audio)
