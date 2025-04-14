@@ -49,16 +49,19 @@ def calculate_bitrate(file_path, temp_audio_base="temp_audio"):
                     "opus": ".opus",
                     "vorbis": ".vorbis",
                     "flac": ".flac",
-                    "pcm_s16le": ".wav",
                     "ac3": ".ac3",
-                    "dts": ".dts",
+                    "aiff": ".aiff",
+                    "m4a": ".m4a",
+                    "wav": ".wav",
+                    "alac": ".alac",
+                    "wma": ".wma",
                 }
-                ext = codec_to_ext.get(codec, ".aac")
+                ext = codec_to_ext.get(codec)
                 temp_audio = temp_audio_base + ext
 
                 # Exctract without re-encoding
                 stream = ffmpeg.input(file_path)
-                stream = ffmpeg.output(stream, temp_audio, c='copy', map='0:a:0', loglevel='quiet')
+                stream = ffmpeg.output(stream, temp_audio, c='copy', map='0:a:0', loglevel='verbose')
                 ffmpeg.run(stream)
                 duration_seconds = float(probe["format"]["duration"])
             except (ffmpeg.Error, ValueError):
