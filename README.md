@@ -1,6 +1,6 @@
 # Bitrate Calculator
 
-A CLI tool to calculate audio bitrate for video/audio files and video bitrate (excluding audio) for video files. Uses FFmpeg metadata when available, falling back to manual calculation.
+A CLI tool to calculate audio bitrate for video/audio files and video bitrate (excluding audio) for video files. Uses ffmpeg to extract metadata when available, falling back to manual calculation.
 
 ## Installation
 
@@ -64,6 +64,6 @@ Audio bitrate: 256 kbps
 
 ## Notes
 
-- Requires FFmpeg for audio/video processing.
+- Requires ffmpeg for audio/video processing.
 - Uses metadata if available; otherwise, calculates video bitrate by subtracting audio size from container size, which may include minor overhead.
 - Install globally with `pip install .` to use `bitrate-calc` command.

@@ -78,8 +78,8 @@ def calculate_bitrate(file_path, temp_audio_base="temp_audio"):
             duration_seconds = AudioSegment.from_file(file_path).duration_seconds
 
         audio_size_bits = os.path.getsize(temp_audio) * 8
-        audio_bitrate_kpbs = (audio_size_bits / duration_seconds) / 1000
-        bitrates["audio"] = audio_bitrate_kpbs
+        audio_bitrate_kbps = (audio_size_bits / duration_seconds) / 1000
+        bitrates["audio"] = audio_bitrate_kbps
 
         if is_video:
             container_size_bits = os.path.getsize(file_path) * 8
