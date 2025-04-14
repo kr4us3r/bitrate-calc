@@ -61,7 +61,7 @@ def calculate_bitrate(file_path, temp_audio_base="temp_audio"):
 
                 # Exctract without re-encoding
                 stream = ffmpeg.input(file_path)
-                stream = ffmpeg.output(stream, temp_audio, c='copy', map='0:a:0', loglevel='verbose')
+                stream = ffmpeg.output(stream, temp_audio, c='copy', map='0:a:0', loglevel='quiet')
                 ffmpeg.run(stream)
                 duration_seconds = float(probe["format"]["duration"])
             except (ffmpeg.Error, ValueError):
