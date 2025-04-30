@@ -6,7 +6,7 @@ A CLI tool to calculate audio bitrate for video/audio files and video bitrate (e
 
 1. Clone the repo:
 ```bash
-git clone https://github.com/yourusername/bitrate-calculator.git
+git clone https://github.com/yourusername/bitrate-calc.git
 cd bitrate-calculator
 ```
 
