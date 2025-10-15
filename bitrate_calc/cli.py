@@ -13,7 +13,8 @@ def main():
 
     try:
         bitrates = calculate_bitrate(args.file_path)
-        print(f"Audio bitrate: {bitrates["audio"]:.0f} kbps")
+        for audio in bitrates["audio"]:
+            print(f"Audio {audio['name']} bitrate: {audio['bitrate']:.0f} kbps")
         if "video" in bitrates:
             print(f"Video bitrate: {bitrates["video"]:.0f} kbps")
     except Exception as e:

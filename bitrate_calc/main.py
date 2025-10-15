@@ -14,80 +14,115 @@ def calculate_bitrate(file_path, temp_audio_base="temp_audio"):
     bitrates = {}
     mime_type, _ = mimetypes.guess_type(file_path)
     is_video = mime_type and mime_type.startswith("video")
-    temp_file_created = False
+    temps_created = []
 
     try:
-        # Try metadata extraction with ffmpeg
+        # try metadata extraction with ffmpeg
+        probe_success = False
+        audio_list = []
+        video_bitrate = None
+        duration_seconds = None
         try:
             probe = ffmpeg.probe(file_path, loglevel="quiet")
+            probe_success = True
             streams = probe["streams"]
             duration_seconds = float(probe["format"]["duration"])
 
-            for stream in streams:
-                if stream["codec_type"] == "audio" and "bit_rate" in stream:
-                    bitrates["audio"] = int(stream["bit_rate"]) / 1000
-                elif is_video and stream["codec_type"] == "video" and "bit_rate" in stream:
-                    bitrates["video"] = int(stream["bit_rate"]) / 1000
-            
-            if (is_video and "audio" in bitrates and "video" in bitrates) or (not is_video and "audio" in bitrates):
-                return bitrates
-        except ffmpeg.Error:
-            pass
-        
-        # Manual calculation
-        if is_video:
-            try:
-                # Get audio codec to choose extension
-                probe = ffmpeg.probe(file_path)
-                audio_stream = next((s for s in probe["streams"] if s["codec_type"] == "audio"), None)
-                if not audio_stream:
-                    raise ValueError("No audio stream found in video")
-                codec = audio_stream.get("codec_name", "aac").lower()
-                codec_to_ext = {
-                    "aac": ".aac",
-                    "mp3": ".mp3",
-                    "opus": ".opus",
-                    "vorbis": ".vorbis",
-                    "flac": ".flac",
-                    "ac3": ".ac3",
-                    "aiff": ".aiff",
-                    "m4a": ".m4a",
-                    "wav": ".wav",
-                    "alac": ".alac",
-                    "wma": ".wma",
-                }
-                ext = codec_to_ext.get(codec)
-                temp_audio = temp_audio_base + ext
+            audio_streams = [s for s in streams if s["codec_type"] == "audio"]
+            video_streams = [s for s in streams if s["codec_type"] == "video"]
 
-                # Exctract without re-encoding
-                stream = ffmpeg.input(file_path)
-                stream = ffmpeg.output(stream, temp_audio, c='copy', map='0:a:0', loglevel='quiet')
-                ffmpeg.run(stream)
-                duration_seconds = float(probe["format"]["duration"])
-            except (ffmpeg.Error, ValueError):
-                print(f"Native audio exctraction failed. Falling back to WAV.")
-                temp_audio = temp_audio_base + ".wav"
-                video = VideoFileClip(file_path)
-                duration_seconds = video.duration
-                video.audio.write_audiofile(temp_audio)
-                video.close()
-            temp_file_created = True
+            # create audio list with metadata
+            for i, stream in enumerate(audio_streams):
+                tags = stream.get("tags", {})
+                lang = tags.get("language", "")
+                title = tags.get("title", "")
+                name = title if title else (f"{i+1} ({lang.upper()})" if len(lang) == 3 else f"{i+1} ({lang})") if lang else f"{i+1}"
+                bitrate = int(stream["bit_rate"]) / 1000 if "bit_rate" in stream else None
+                audio_list.append({"name": name, "bitrate": bitrate})
+
+            # video bitrate
+            if video_streams:
+                stream = video_streams[0]
+                bitrate = int(stream["bit_rate"]) / 1000 if "bit_rate" in stream else None
+
+            # return early if all bitrates present
+            need_fallback = any(a["bitrate"] is None for a in audio_list) or (is_video and video_bitrate is None)
+            if not need_fallback and audio_list:
+                bitrates["audio"] = audio_list
+                if is_video and video_bitrate is not None:
+                    bitrates["video"] = video_bitrate
+                return bitrates
+
+        except ffmpeg.Error:
+            probe_success = False
+        
+        if not audio_list:
+            raise ValueError("No audio stream found")
+
+        # partial fallback to extract missing bitrates
+        if probe_success and duration_seconds is not None:
+            total_audio_size_bits = 0
+            for i, stream in enumerate(audio_streams):
+                codec = stream.get("codec_name", "wav").lower()
+                temp_audio = f"{temp_audio_base}_{i}.{codec}"
+                temps_created.append(temp_audio)
+
+                try:
+                    # extract without re-encoding
+                    stream = ffmpeg.input(file_path)
+                    out = ffmpeg.output(stream, temp_audio, c='copy',map=f'0:a:{i}', loglevel='quiet')
+                    ffmpeg.run(out, overwrite_output=True, quiet=True)
+                except ffmpeg.Error:
+                    if is_video:
+                        video = VideoFileClip(file_path)
+                        audio_clip = video.audio.subclipped()
+                        audio_clip.write_audiofile(temp_audio, verbose=False, logger=None)
+                        audio_clip.close()
+                        video.close()
+                    else:
+                        raise ValueError("Failed to extract")
+                    
+                    audio_size_bits = os.path.getsize(temp_audio) * 8
+                    audio_bitrate_kbps = (audio_size_bits / duration_seconds) / 1000
+                    audio_list[i]["bitrate"] = audio_bitrate_kbps
+                    total_audio_size_bits += audio_size_bits
+                
+                bitrates["audio"] = audio_list
+
+            if is_video and video_bitrate is None:
+                container_size_bits = os.path.getsize(file_path) * 8
+                video_size_bits = container_size_bits - total_audio_size_bits
+                if video_size_bits > 0:
+                    bitrates["video"] = (video_size_bits / duration_seconds) / 1000
+            
+            return bitrates
+
+        # full fallback
+        if is_video:
+            temp_audio = temp_audio_base + ".wav"
+            temps_created.append(temp_audio)
+            video = VideoFileClip(file_path)
+            duration_seconds = video.duration
+            video.audio.write_audiofile(temp_audio, verbose=False, logger=None)
+            video.close()
         else:
-            # Use audio file directly
             temp_audio = file_path
-            duration_seconds = AudioSegment.from_file(file_path).duration_seconds
+            duration_seconds = AudioSegment.from_file(file_path).duration
 
         audio_size_bits = os.path.getsize(temp_audio) * 8
         audio_bitrate_kbps = (audio_size_bits / duration_seconds) / 1000
-        bitrates["audio"] = audio_bitrate_kbps
+        bitrates["audio"] = [{"name": "Audio track", "bitrate": audio_bitrate_kbps}]
 
         if is_video:
             container_size_bits = os.path.getsize(file_path) * 8
-            video_size_bits = container_size_bits - audio_size_bits
-            video_bitrate_kpbs = (video_size_bits / duration_seconds) / 1000
-            bitrates["video"] = video_bitrate_kpbs
+            video_bitrate = container_size_bits - audio_size_bits
+            if video_size_bits > 0:
+                bitrates["video"] = (video_size_bits / duration_seconds) / 1000
+
         return bitrates
-   
+
     finally:
-        if temp_file_created and os.path.exists(temp_audio):
-            os.remove(temp_audio)
+        for temp in temps_created:
+            if os.path.exists(temp):
+                os.remove(temp)
+            
